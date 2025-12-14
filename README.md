@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/logo.png" alt="GoCipher Logo" width="400"/>
+  <img src="assets/logo.jpg" alt="GoCipher Logo" width="400"/>
 </p>
 
 # GoCipher
