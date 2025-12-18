@@ -1,6 +1,6 @@
 package main
 
-import "gocipher/cmd"
+import "github.com/lucas-dehandschutter/gocipher/cmd"
 
 func main() {
 	cmd.Execute()

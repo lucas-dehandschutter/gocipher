@@ -4,10 +4,11 @@ import (
 	"bufio"
 	"encoding/hex"
 	"fmt"
-	"gocipher/pkg/crypto"
 	"os"
 	"strings"
 	"syscall"
+
+	"github.com/lucas-dehandschutter/gocipher/pkg/crypto"
 
 	"github.com/spf13/cobra"
 	"golang.org/x/term"

@@ -4,6 +4,10 @@
 
 # GoCipher
 
+[![Go Report Card](https://goreportcard.com/badge/github.com/lucas-dehandschutter/gocipher)](https://goreportcard.com/report/github.com/lucas-dehandschutter/gocipher)
+[![License](https://img.shields.io/github/license/lucas-dehandschutter/gocipher)](LICENSE)
+![GitHub release](https://img.shields.io/github/v/release/lucas-dehandschutter/gocipher)
+
 GoCipher is a secure, lightweight command-line interface (CLI) tool written in Go for encrypting and decrypting strings and files. It uses **AES-256-GCM** with **PBKDF2** key derivation to ensure your data remains safe.
 
 ## Features
@@ -15,11 +19,17 @@ GoCipher is a secure, lightweight command-line interface (CLI) tool written in G
 
 ## Installation
 
+### Via Go Install (Recommended)
+
+```bash
+go install github.com/lucas-dehandschutter/gocipher@latest
+```
+
 ### From Source
 
 1.  Clone the repository:
     ```bash
-    git clone <repository-url>
+    git clone https://github.com/lucas-dehandschutter/gocipher.git
     cd gocipher
     ```
 
