@@ -4,7 +4,7 @@
 
 # GoCipher
 
-[![goreleaser](https://img.shields.io/github/actions/workflow/status/lucas-dehandschutter/gocipher/release.yml)](https://github.com/lucas-dehandschutter/gocipher/actions/workflows/release.yml)
+[![build](https://github.com/lucas-dehandschutter/gocipher/actions/workflows/ci.yml/badge.svg)](https://github.com/lucas-dehandschutter/gocipher/actions/workflows/ci.yml)
 [![License](https://img.shields.io/github/license/lucas-dehandschutter/gocipher)](LICENSE)
 [![GitHub release](https://img.shields.io/github/v/release/lucas-dehandschutter/gocipher)](https://github.com/lucas-dehandschutter/gocipher/releases/latest)
 
