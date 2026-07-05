@@ -8,12 +8,13 @@
 [![License](https://img.shields.io/github/license/lucas-dehandschutter/gocipher)](LICENSE)
 [![GitHub release](https://img.shields.io/github/v/release/lucas-dehandschutter/gocipher)](https://github.com/lucas-dehandschutter/gocipher/releases/latest)
 
-GoCipher is a secure, lightweight command-line interface (CLI) tool written in Go for encrypting and decrypting strings and files. It uses **AES-256-GCM** with **PBKDF2** key derivation to ensure your data remains safe.
+GoCipher is a secure, lightweight command-line interface (CLI) tool written in Go for encrypting and decrypting strings and files. It uses **AES-256-GCM** with **Argon2id** key derivation to ensure your data remains safe.
 
 ## Features
 
 *   **Strong Encryption**: Uses AES-256-GCM for authenticated encryption.
-*   **Secure Key Derivation**: Derives keys from passwords using PBKDF2 with SHA-256 and a random salt.
+*   **Secure Key Derivation**: Derives keys from passwords using Argon2id (resists GPU/ASIC brute-force attacks).
+*   **Chunked Streaming**: Encrypts and decrypts files in 64KB blocks, protected with AAD (Associated Data) to prevent truncation or data manipulation.
 *   **Versatile**: Supports both direct string input and file encryption/decryption.
 *   **Cross-Platform**: Runs on any system where Go is supported (Windows, macOS, Linux).
 
@@ -52,6 +53,9 @@ Run the tool using the built binary `./gocipher` or directly with `go run main.g
 *   `-s, --string`: Input string to encrypt/decrypt.
 *   `-f, --file`: Path to the file to encrypt/decrypt.
 *   `-d, --decrypt`: Enable decryption mode (default is encryption).
+*   `-t, --time`: Argon2id time parameter (iterations, default: 3).
+*   `-m, --memory`: Argon2id memory parameter in KB (default: 65536, which is 64MB).
+*   `-p, --threads`: Argon2id threads parameter (parallelism, default: 4).
 
 ### Examples
 
@@ -92,11 +96,21 @@ Decrypts an encrypted file (e.g., `document.txt.enc`). The output will be saved 
 ## Security Details
 
 *   **Algorithm**: AES-256-GCM (Galois/Counter Mode).
-*   **Key Derivation**: PBKDF2 (Password-Based Key Derivation Function 2).
-    *   Hash: SHA-256
-    *   Iterations: 100,000
+*   **Key Derivation**: Argon2id.
+    *   Time (Iterations): 3
+    *   Memory: 64 MB (65,536 KB)
+    *   Threads (Parallelism): 4
     *   Salt: 16 bytes (randomly generated per encryption)
-*   **Nonce**: 12 bytes (randomly generated per encryption)
+*   **Nonce**: 12 bytes (randomly generated per block)
+*   **Header Format** (32 bytes):
+    *   Magic Bytes: `GOC` (3 bytes)
+    *   Format Version: `0x02` (1 byte)
+    *   Argon2id Time: `uint32` (4 bytes, BigEndian)
+    *   Argon2id Memory: `uint32` (4 bytes, BigEndian)
+    *   Argon2id Threads: `uint8` (1 byte)
+    *   Reserved: `3 bytes` (padding for alignment/future use, set to 0)
+    *   Salt: `16 bytes`
+*   **Streaming Format**: Chunked streaming (64KB chunks) with "Marked Terminal Chunk" logic to prevent truncation and block relocation attacks.
 
 ## License
 

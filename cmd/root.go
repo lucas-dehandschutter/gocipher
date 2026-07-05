@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"syscall"
@@ -15,9 +16,12 @@ import (
 )
 
 var (
-	decryptMode bool
-	filePath    string
-	inputString string
+	decryptMode   bool
+	filePath      string
+	inputString   string
+	argon2Time    uint32
+	argon2Memory  uint32
+	argon2Threads uint8
 )
 
 var rootCmd = &cobra.Command{
@@ -25,38 +29,41 @@ var rootCmd = &cobra.Command{
 	Short: "GoCipher is a CLI tool for encryption and decryption",
 	Long:  `GoCipher uses AES-256-GCM with PBKDF2 key derivation to securely encrypt and decrypt strings and files.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		// Determine input
-		var data []byte
+		var inReader io.Reader
+		var outWriter io.Writer
 		var err error
-		var isFile bool
 
+		// 1. Setup Input Reader
 		if filePath != "" {
-			isFile = true
-			data, err = os.ReadFile(filePath)
+			f, err := os.Open(filePath)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "Error reading file: %v\n", err)
+				fmt.Fprintf(os.Stderr, "Error opening file: %v\n", err)
 				os.Exit(1)
 			}
-		} else if inputString != "" {
-			data = []byte(inputString)
-		} else if len(args) > 0 {
-			data = []byte(strings.Join(args, " "))
+			defer f.Close()
+			inReader = f
 		} else {
-			cmd.Help()
-			os.Exit(0)
-		}
-
-		// If decrypting a string (not file), decode hex
-		if decryptMode && !isFile {
-			decoded, err := hex.DecodeString(string(data))
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Error decoding hex string: %v\n", err)
-				os.Exit(1)
+			var inputData string
+			if inputString != "" {
+				inputData = inputString
+			} else if len(args) > 0 {
+				inputData = strings.Join(args, " ")
+			} else {
+				cmd.Help()
+				os.Exit(0)
 			}
-			data = decoded
+
+			// If decrypting a string, it's expected to be hex-encoded
+			if decryptMode {
+				// Remove newlines/spaces just in case
+				inputData = strings.TrimSpace(inputData)
+				inReader = hex.NewDecoder(strings.NewReader(inputData))
+			} else {
+				inReader = strings.NewReader(inputData)
+			}
 		}
 
-		// Prompt for password
+		// 2. Setup Password
 		var password string
 		if term.IsTerminal(int(syscall.Stdin)) {
 			fmt.Print("Enter Password: ")
@@ -68,7 +75,6 @@ var rootCmd = &cobra.Command{
 			}
 			password = string(bytePassword)
 		} else {
-			// Read from stdin (pipe)
 			reader := bufio.NewReader(os.Stdin)
 			pass, err := reader.ReadString('\n')
 			if err != nil && err.Error() != "EOF" {
@@ -78,24 +84,8 @@ var rootCmd = &cobra.Command{
 			password = strings.TrimSpace(pass)
 		}
 
-		// Perform operation
-		var result []byte
-		if decryptMode {
-			result, err = crypto.Decrypt(data, password)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Decryption failed: %v\n", err)
-				os.Exit(1)
-			}
-		} else {
-			result, err = crypto.Encrypt(data, password)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Encryption failed: %v\n", err)
-				os.Exit(1)
-			}
-		}
-
-		// Handle output
-		if isFile {
+		// 3. Setup Output Writer
+		if filePath != "" {
 			var outPath string
 			if decryptMode {
 				if strings.HasSuffix(filePath, ".enc") {
@@ -107,18 +97,40 @@ var rootCmd = &cobra.Command{
 				outPath = filePath + ".enc"
 			}
 
-			err = os.WriteFile(outPath, result, 0644)
+			f, err := os.Create(outPath)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "Error writing file: %v\n", err)
+				fmt.Fprintf(os.Stderr, "Error creating output file: %v\n", err)
 				os.Exit(1)
 			}
-			fmt.Printf("File saved to %s\n", outPath)
+			defer f.Close()
+			outWriter = f
+			defer fmt.Printf("File saved to %s\n", outPath)
 		} else {
-			if decryptMode {
-				fmt.Println(string(result))
+			// If encrypting to stdout (string mode), use hex encoding
+			if !decryptMode {
+				outWriter = hex.NewEncoder(os.Stdout)
+				// Add a newline at the end for terminal niceness
+				defer fmt.Println()
 			} else {
-				fmt.Printf("%x\n", result)
+				outWriter = os.Stdout
 			}
+		}
+
+		// 4. Perform Operation
+		if decryptMode {
+			err = crypto.DecryptStream(inReader, outWriter, password)
+		} else {
+			params := crypto.Argon2Params{
+				Time:    argon2Time,
+				Memory:  argon2Memory,
+				Threads: argon2Threads,
+			}
+			err = crypto.EncryptStream(inReader, outWriter, password, params)
+		}
+
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Operation failed: %v\n", err)
+			os.Exit(1)
 		}
 	},
 }
@@ -134,4 +146,9 @@ func init() {
 	rootCmd.Flags().BoolVarP(&decryptMode, "decrypt", "d", false, "Decrypt mode")
 	rootCmd.Flags().StringVarP(&filePath, "file", "f", "", "File to encrypt/decrypt")
 	rootCmd.Flags().StringVarP(&inputString, "string", "s", "", "String to encrypt")
+
+	// Argon2id parameter flags (only applicable during encryption)
+	rootCmd.Flags().Uint32VarP(&argon2Time, "time", "t", crypto.DefaultArgon2Params.Time, "Argon2id time parameter (iterations)")
+	rootCmd.Flags().Uint32VarP(&argon2Memory, "memory", "m", crypto.DefaultArgon2Params.Memory, "Argon2id memory parameter in KB (e.g. 65536 for 64MB)")
+	rootCmd.Flags().Uint8VarP(&argon2Threads, "threads", "p", crypto.DefaultArgon2Params.Threads, "Argon2id threads parameter (parallelism)")
 }

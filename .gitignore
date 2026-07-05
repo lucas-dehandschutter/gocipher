@@ -29,3 +29,4 @@ go.work
 # Encrypted files
 *.enc
 test.txt
+test_stream.txt
