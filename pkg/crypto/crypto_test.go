@@ -8,7 +8,7 @@ import (
 )
 
 func TestEncryptDecryptStream(t *testing.T) {
-	password := "securepassword"
+	password := []byte("securepassword")
 	plaintext := "This is a secret message that needs to be encrypted."
 
 	// Encrypt
@@ -30,7 +30,7 @@ func TestEncryptDecryptStream(t *testing.T) {
 }
 
 func TestEncryptDecryptHelpers(t *testing.T) {
-	password := "helperpassword"
+	password := []byte("helperpassword")
 	plaintext := []byte("Helper test data")
 
 	// Fast encrypt
@@ -58,7 +58,7 @@ func TestLargeDataStream(t *testing.T) {
 		data[i] = byte(i % 256)
 	}
 
-	password := "largefilepassword"
+	password := []byte("largefilepassword")
 
 	input := bytes.NewReader(data)
 	var encrypted bytes.Buffer
@@ -78,8 +78,8 @@ func TestLargeDataStream(t *testing.T) {
 }
 
 func TestDecryptInvalidPassword(t *testing.T) {
-	password := "correct"
-	wrongPassword := "wrong"
+	password := []byte("correct")
+	wrongPassword := []byte("wrong")
 	plaintext := "Secret"
 
 	encrypted, _ := Encrypt([]byte(plaintext), password, DefaultArgon2Params)
@@ -92,7 +92,7 @@ func TestDecryptInvalidPassword(t *testing.T) {
 }
 
 func TestDecryptCorruptData(t *testing.T) {
-	password := "password"
+	password := []byte("password")
 	plaintext := "Secret"
 
 	encrypted, _ := Encrypt([]byte(plaintext), password, DefaultArgon2Params)
@@ -107,7 +107,7 @@ func TestDecryptCorruptData(t *testing.T) {
 }
 
 func TestDecryptInvalidHeader(t *testing.T) {
-	password := "password"
+	password := []byte("password")
 	plaintext := "TopSecret"
 
 	encrypted, _ := Encrypt([]byte(plaintext), password, DefaultArgon2Params)
@@ -130,7 +130,7 @@ func TestDecryptInvalidHeader(t *testing.T) {
 }
 
 func TestDecryptTamperedFlag(t *testing.T) {
-	password := "password"
+	password := []byte("password")
 	plaintext := "TopSecret"
 
 	// Create a valid encrypted stream
@@ -177,7 +177,7 @@ func TestDecryptTamperedFlag(t *testing.T) {
 }
 
 func TestEncryptDecryptCustomParams(t *testing.T) {
-	password := "custompassword"
+	password := []byte("custompassword")
 	plaintext := "Testing custom parameters for Argon2id."
 
 	params := Argon2Params{
@@ -253,4 +253,216 @@ func TestArgon2ParamsValidation(t *testing.T) {
 			t.Errorf("Unexpected validation error for valid parameters: %v", err)
 		}
 	})
+
+	t.Run("Time is too high", func(t *testing.T) {
+		p := Argon2Params{Time: maxArgon2Time + 1, Memory: 1024, Threads: 1}
+		if err := p.Validate(); err == nil {
+			t.Error("Expected validation error for Time above the maximum")
+		}
+	})
+
+	t.Run("Memory is too high", func(t *testing.T) {
+		p := Argon2Params{Time: 1, Memory: maxArgon2Memory + 1, Threads: 1}
+		if err := p.Validate(); err == nil {
+			t.Error("Expected validation error for Memory above the maximum")
+		}
+	})
+
+	t.Run("Threads is too high", func(t *testing.T) {
+		p := Argon2Params{Time: 1, Memory: 1024, Threads: maxArgon2Threads + 1}
+		if err := p.Validate(); err == nil {
+			t.Error("Expected validation error for Threads above the maximum")
+		}
+	})
+}
+
+// TestDecryptRejectsOversizedHeaderParams ensures a crafted/tampered file
+// cannot force an oversized Argon2id memory allocation by smuggling huge
+// parameters through the (otherwise untrusted) file header.
+func TestDecryptRejectsOversizedHeaderParams(t *testing.T) {
+	password := []byte("password")
+	plaintext := []byte("Secret")
+
+	encrypted, err := Encrypt(plaintext, password, DefaultArgon2Params)
+	if err != nil {
+		t.Fatalf("Encrypt failed: %v", err)
+	}
+
+	// Tamper with the Memory field (header bytes 8:12) to an unreasonably
+	// large value, as an attacker crafting a malicious file might.
+	tampered := make([]byte, len(encrypted))
+	copy(tampered, encrypted)
+	binary.BigEndian.PutUint32(tampered[8:12], maxArgon2Memory+1)
+
+	_, err = Decrypt(tampered, password)
+	if err == nil {
+		t.Fatal("Expected decryption to fail for oversized Memory parameter in header")
+	}
+	if !strings.Contains(err.Error(), "invalid argon2id parameters") {
+		t.Errorf("Expected error about invalid argon2id parameters, got: %v", err)
+	}
+}
+
+// splitStream parses a v3 encrypted stream into its 32-byte header and the
+// raw on-wire bytes of each chunk (Flag + Length + Nonce + Ciphertext).
+func splitStream(t *testing.T, stream []byte) (header []byte, chunks [][]byte) {
+	t.Helper()
+	if len(stream) < 32 {
+		t.Fatalf("stream shorter than header: %d bytes", len(stream))
+	}
+	header = stream[:32]
+	rest := stream[32:]
+	for len(rest) > 0 {
+		if len(rest) < 5+nonceSize {
+			t.Fatalf("truncated chunk header")
+		}
+		dataLen := int(binary.BigEndian.Uint32(rest[1:5]))
+		total := 5 + nonceSize + dataLen + 16 // flag+length + nonce + ciphertext+tag
+		if len(rest) < total {
+			t.Fatalf("truncated chunk body: need %d, have %d", total, len(rest))
+		}
+		chunks = append(chunks, rest[:total])
+		rest = rest[total:]
+	}
+	return header, chunks
+}
+
+func reassemble(header []byte, chunks [][]byte) []byte {
+	out := append([]byte{}, header...)
+	for _, c := range chunks {
+		out = append(out, c...)
+	}
+	return out
+}
+
+// TestDecryptDetectsChunkReordering ensures that swapping two data chunks is
+// caught by the per-chunk counter bound into the AAD.
+func TestDecryptDetectsChunkReordering(t *testing.T) {
+	password := []byte("password")
+	data := make([]byte, 2*chunkSize+500) // two full data chunks + a terminal chunk
+	for i := range data {
+		data[i] = byte(i)
+	}
+
+	encrypted, err := Encrypt(data, password, DefaultArgon2Params)
+	if err != nil {
+		t.Fatalf("Encrypt failed: %v", err)
+	}
+
+	header, chunks := splitStream(t, encrypted)
+	if len(chunks) < 3 {
+		t.Fatalf("expected at least 3 chunks, got %d", len(chunks))
+	}
+
+	// Swap the two full-size data chunks.
+	chunks[0], chunks[1] = chunks[1], chunks[0]
+	tampered := reassemble(header, chunks)
+
+	if _, err := Decrypt(tampered, password); err == nil {
+		t.Error("expected reordered chunks to fail authentication")
+	}
+}
+
+// TestDecryptDetectsChunkDeletion ensures that removing an interior chunk is
+// caught: all following chunks shift down, so their counters no longer match.
+func TestDecryptDetectsChunkDeletion(t *testing.T) {
+	password := []byte("password")
+	data := make([]byte, 2*chunkSize+500)
+	for i := range data {
+		data[i] = byte(i)
+	}
+
+	encrypted, err := Encrypt(data, password, DefaultArgon2Params)
+	if err != nil {
+		t.Fatalf("Encrypt failed: %v", err)
+	}
+
+	header, chunks := splitStream(t, encrypted)
+	if len(chunks) < 3 {
+		t.Fatalf("expected at least 3 chunks, got %d", len(chunks))
+	}
+
+	// Drop the first data chunk; the second now sits where the first was and
+	// will be checked against the wrong counter.
+	tampered := reassemble(header, chunks[1:])
+
+	if _, err := Decrypt(tampered, password); err == nil {
+		t.Error("expected a deleted chunk to fail authentication")
+	}
+}
+
+// TestDecryptDetectsHeaderTampering ensures the header is now authenticated:
+// flipping even a reserved byte (previously ignored) breaks decryption.
+func TestDecryptDetectsHeaderTampering(t *testing.T) {
+	password := []byte("password")
+	encrypted, err := Encrypt([]byte("secret"), password, DefaultArgon2Params)
+	if err != nil {
+		t.Fatalf("Encrypt failed: %v", err)
+	}
+
+	tampered := make([]byte, len(encrypted))
+	copy(tampered, encrypted)
+	tampered[13] ^= 0xFF // reserved byte, not used by the KDF or version/magic checks
+
+	if _, err := Decrypt(tampered, password); err == nil {
+		t.Error("expected tampering with a reserved header byte to fail authentication")
+	}
+}
+
+// TestDecryptRejectsOversizedChunkLength ensures a crafted chunk length can't
+// force a huge allocation before authentication.
+func TestDecryptRejectsOversizedChunkLength(t *testing.T) {
+	password := []byte("password")
+	encrypted, err := Encrypt([]byte("secret"), password, DefaultArgon2Params)
+	if err != nil {
+		t.Fatalf("Encrypt failed: %v", err)
+	}
+
+	tampered := make([]byte, len(encrypted))
+	copy(tampered, encrypted)
+	// Length is 4 bytes at offset 33 (after the 32-byte header + 1 flag byte).
+	binary.BigEndian.PutUint32(tampered[33:37], chunkSize+1)
+
+	_, err = Decrypt(tampered, password)
+	if err == nil || !strings.Contains(err.Error(), "invalid chunk length") {
+		t.Errorf("expected 'invalid chunk length' error, got: %v", err)
+	}
+}
+
+func TestEstimatePasswordStrength(t *testing.T) {
+	tests := []struct {
+		password  []byte
+		wantLabel string
+	}{
+		{[]byte(""), "Empty"},
+		{[]byte("weak"), "Weak"},
+		{[]byte("Medium123"), "Medium"},
+		{[]byte("StrongPw1!"), "Strong"},
+		{[]byte("ExtremelyLongAndComplexPassword123!@#$"), "Very Strong"},
+	}
+
+	for _, tt := range tests {
+		_, gotLabel := EstimatePasswordStrength(tt.password)
+		// Clean up ANSI color codes for assertion
+		gotLabelClean := gotLabel
+		gotLabelClean = strings.ReplaceAll(gotLabelClean, "\033[31m", "")
+		gotLabelClean = strings.ReplaceAll(gotLabelClean, "\033[33m", "")
+		gotLabelClean = strings.ReplaceAll(gotLabelClean, "\033[32m", "")
+		gotLabelClean = strings.ReplaceAll(gotLabelClean, "\033[32;1m", "")
+		gotLabelClean = strings.ReplaceAll(gotLabelClean, "\033[0m", "")
+
+		if gotLabelClean != tt.wantLabel {
+			t.Errorf("EstimatePasswordStrength(%q) = %q, want %q", tt.password, gotLabelClean, tt.wantLabel)
+		}
+	}
+}
+
+func TestZeroMemory(t *testing.T) {
+	b := []byte{1, 2, 3, 4, 5}
+	ZeroMemory(b)
+	for i, val := range b {
+		if val != 0 {
+			t.Errorf("Expected byte at index %d to be 0, got %d", i, val)
+		}
+	}
 }

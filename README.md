@@ -46,51 +46,70 @@ go install github.com/lucas-dehandschutter/gocipher@latest
 
 ## Usage
 
-Run the tool using the built binary `./gocipher` or directly with `go run main.go`.
+Run the tool using the built binary `./gocipher` or directly with `go run main.go`. GoCipher exposes two subcommands, `encrypt` and `decrypt`, each taking an optional file argument. When no file is given, input is read from stdin.
+
+```
+gocipher encrypt [file] [flags]
+gocipher decrypt [file] [flags]
+```
 
 ### Flags
 
-*   `-s, --string`: Input string to encrypt/decrypt.
-*   `-f, --file`: Path to the file to encrypt/decrypt.
-*   `-d, --decrypt`: Enable decryption mode (default is encryption).
+Common to both `encrypt` and `decrypt`:
+
+*   `-o, --output`: Output path. Defaults to stdout when reading from stdin, or `<file>.enc`/`.dec`-derived when a file argument is given.
+
+`encrypt` only (Argon2id parameters are stored in the ciphertext header, so `decrypt` reads them back automatically and does not accept these flags):
+
 *   `-t, --time`: Argon2id time parameter (iterations, default: 3).
 *   `-m, --memory`: Argon2id memory parameter in KB (default: 65536, which is 64MB).
 *   `-p, --threads`: Argon2id threads parameter (parallelism, default: 4).
 
+Passwords are always prompted for interactively (masked input) or read from a pipe — see below. There is no flag to pass a password directly, by design.
+
 ### Examples
 
-#### 1. Encrypt a String
+#### 1. Encrypt text typed or piped in
 
-Encrypts a text string. You will be prompted to enter a password.
-
-```bash
-./gocipher -s "Secret Message"
-# Output: <hex-encoded-ciphertext>
-```
-
-#### 2. Decrypt a String
-
-Decrypts a hex-encoded string. **Note: The `-d` flag should come before the string input or use the `-s` flag explicitly.**
+No file argument means input comes from stdin. Type your text and press Ctrl+D, or pipe it in.
 
 ```bash
-./gocipher -d -s "<hex-encoded-ciphertext>"
+echo -n "Secret Message" | ./gocipher encrypt
+# Output: <hex-encoded-ciphertext> (hex because stdout is a terminal; raw bytes if redirected/piped)
 ```
 
-#### 3. Encrypt a File
+Since stdin is already used for the data here, you'll be prompted for the password via your terminal directly (not stdin) — this works whether you're typing interactively or piping data in.
+
+#### 2. Decrypt text typed or piped in
+
+Interactively, you'll be prompted to paste a hex-encoded ciphertext line; piped input is read as the raw encrypted stream instead.
+
+```bash
+./gocipher decrypt
+Enter hex-encoded ciphertext: <paste it here>
+```
+
+#### 3. Encrypt a file
 
 Encrypts a file (e.g., `document.txt`). The output will be saved as `document.txt.enc`.
 
 ```bash
-./gocipher -f document.txt
+./gocipher encrypt document.txt
 ```
 
-#### 4. Decrypt a File
+#### 4. Decrypt a file
 
 Decrypts an encrypted file (e.g., `document.txt.enc`). The output will be saved as `document.txt` (or `.dec` if the extension differs).
 
 ```bash
-# Important: Place flags before the filename or use -f
-./gocipher -d -f document.txt.enc
+./gocipher decrypt document.txt.enc
+```
+
+#### 5. Choose your own output path
+
+```bash
+./gocipher encrypt document.txt -o secret.bin
+echo -n "Secret Message" | ./gocipher encrypt -o secret.bin
 ```
 
 ## Security Details
@@ -104,13 +123,15 @@ Decrypts an encrypted file (e.g., `document.txt.enc`). The output will be saved 
 *   **Nonce**: 12 bytes (randomly generated per block)
 *   **Header Format** (32 bytes):
     *   Magic Bytes: `GOC` (3 bytes)
-    *   Format Version: `0x02` (1 byte)
+    *   Format Version: `0x03` (1 byte)
     *   Argon2id Time: `uint32` (4 bytes, BigEndian)
     *   Argon2id Memory: `uint32` (4 bytes, BigEndian)
     *   Argon2id Threads: `uint8` (1 byte)
     *   Reserved: `3 bytes` (padding for alignment/future use, set to 0)
     *   Salt: `16 bytes`
-*   **Streaming Format**: Chunked streaming (64KB chunks) with "Marked Terminal Chunk" logic to prevent truncation and block relocation attacks.
+*   **Streaming Format**: Chunked streaming (64KB chunks). Each chunk is `Flag (1) + Length (4) + Nonce (12) + Ciphertext`. The GCM tag of every chunk authenticates additional data comprising the **full header**, the chunk's flag and length, and a **monotonic chunk counter**. This binds the parameters to the payload and makes truncation, chunk reordering, and chunk deletion all detectable — decryption fails rather than silently returning altered data.
+
+> **Note:** The version `0x03` format is not backward-compatible with files produced by earlier versions.
 
 ## License
 
