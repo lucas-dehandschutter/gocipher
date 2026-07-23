@@ -1,0 +1,183 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 760" width="900" height="760" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" role="img" aria-label="GoCipher v3 encrypted file format: header, chunk structure, and AAD composition">
+  <!-- paper background -->
+  <rect x="0" y="0" width="900" height="760" rx="16" fill="#F6F5F2"/>
+  <rect x="0.5" y="0.5" width="899" height="759" rx="16" fill="none" stroke="#E0DED8"/>
+
+  <!-- title -->
+  <text x="40" y="48" font-size="22" font-weight="700" fill="#16384B">GoCipher — Encrypted File Format (v3)</text>
+  <text x="40" y="72" font-size="13" fill="#5B7383">What each block holds on disk, and what the GCM tag actually authenticates (the AAD).</text>
+
+  <!-- legend -->
+  <rect x="40" y="90" width="15" height="15" rx="4" fill="#1D5B77"/>
+  <rect x="40" y="90" width="15" height="4" rx="2" fill="#16384B"/>
+  <text x="63" y="102" font-size="12.5" fill="#16384B">Encrypted + authenticated</text>
+
+  <rect x="300" y="90" width="15" height="15" rx="4" fill="#E7F2F9"/>
+  <rect x="300" y="90" width="15" height="4" rx="2" fill="#3E9BCC"/>
+  <text x="323" y="102" font-size="12.5" fill="#16384B">Authenticated (AAD)</text>
+
+  <rect x="520" y="90" width="15" height="15" rx="4" fill="#EEF1F3"/>
+  <rect x="520" y="90" width="15" height="4" rx="2" fill="#8E979F"/>
+  <text x="543" y="102" font-size="12.5" fill="#16384B">Nonce — public</text>
+
+  <!-- ============ Section 1: File layout ============ -->
+  <text x="40" y="140" font-size="14.5" font-weight="650" fill="#16384B"><tspan fill="#3E9BCC" font-family="ui-monospace, Menlo, Consolas, monospace">01</tspan>  File layout</text>
+  <rect x="40" y="150" width="820" height="70" rx="10" fill="#ECEAE4"/>
+
+  <!-- header block -->
+  <rect x="48" y="160" width="150" height="52" rx="6" fill="#FFFFFF" stroke="#D3DAE0"/>
+  <rect x="50" y="160" width="146" height="4" rx="2" fill="#3E9BCC"/>
+  <text x="58" y="184" font-size="13" font-weight="600" fill="#16384B">Header</text>
+  <text x="58" y="202" font-size="10.5" fill="#5B7383" font-family="ui-monospace, Menlo, Consolas, monospace">32 bytes · once</text>
+  <!-- chunk 0 -->
+  <rect x="206" y="160" width="146" height="52" rx="6" fill="#FFFFFF" stroke="#D3DAE0"/>
+  <rect x="208" y="160" width="142" height="4" rx="2" fill="#1D5B77"/>
+  <text x="216" y="184" font-size="13" font-weight="600" fill="#16384B">Chunk 0</text>
+  <text x="216" y="202" font-size="10.5" fill="#5B7383" font-family="ui-monospace, Menlo, Consolas, monospace">Flag 0 · data</text>
+  <!-- chunk 1 -->
+  <rect x="356" y="160" width="146" height="52" rx="6" fill="#FFFFFF" stroke="#D3DAE0"/>
+  <rect x="358" y="160" width="142" height="4" rx="2" fill="#1D5B77"/>
+  <text x="366" y="184" font-size="13" font-weight="600" fill="#16384B">Chunk 1</text>
+  <text x="366" y="202" font-size="10.5" fill="#5B7383" font-family="ui-monospace, Menlo, Consolas, monospace">Flag 0 · data</text>
+  <!-- chunk 2 -->
+  <rect x="506" y="160" width="146" height="52" rx="6" fill="#FFFFFF" stroke="#D3DAE0"/>
+  <rect x="508" y="160" width="142" height="4" rx="2" fill="#1D5B77"/>
+  <text x="516" y="184" font-size="13" font-weight="600" fill="#16384B">Chunk 2</text>
+  <text x="516" y="202" font-size="10.5" fill="#5B7383" font-family="ui-monospace, Menlo, Consolas, monospace">Flag 0 · data</text>
+  <!-- chunk 3 terminal -->
+  <rect x="656" y="160" width="196" height="52" rx="6" fill="#FFFFFF" stroke="#1D5B77" stroke-dasharray="5 4"/>
+  <rect x="658" y="160" width="192" height="4" rx="2" fill="#1D5B77"/>
+  <text x="666" y="184" font-size="13" font-weight="600" fill="#16384B">Chunk 3</text>
+  <text x="666" y="202" font-size="10.5" fill="#5B7383" font-family="ui-monospace, Menlo, Consolas, monospace">Flag 1 · terminal</text>
+
+  <!-- ============ Section 2: Header ============ -->
+  <text x="40" y="252" font-size="14.5" font-weight="650" fill="#16384B"><tspan fill="#3E9BCC" font-family="ui-monospace, Menlo, Consolas, monospace">02</tspan>  Header · 32 bytes  <tspan font-size="12" font-weight="400" fill="#5B7383">— in clear, but authenticated in full</tspan></text>
+  <rect x="40" y="262" width="820" height="94" rx="10" fill="#ECEAE4"/>
+
+  <!-- header fields (all AAD blue) -->
+  <!-- Magic -->
+  <rect x="48" y="272" width="92" height="76" rx="6" fill="#E7F2F9" stroke="#CFE3EF"/>
+  <rect x="50" y="272" width="88" height="4" rx="2" fill="#3E9BCC"/>
+  <text x="56" y="298" font-size="13" font-weight="600" fill="#16384B" font-family="ui-monospace, Menlo, Consolas, monospace">Magic</text>
+  <text x="56" y="316" font-size="10.5" fill="#5B7383" font-family="ui-monospace, Menlo, Consolas, monospace">3 B · GOC</text>
+  <text x="56" y="332" font-size="9.5" fill="#8796A2" font-family="ui-monospace, Menlo, Consolas, monospace">0–2</text>
+  <!-- Ver -->
+  <rect x="146" y="272" width="62" height="76" rx="6" fill="#E7F2F9" stroke="#CFE3EF"/>
+  <rect x="148" y="272" width="58" height="4" rx="2" fill="#3E9BCC"/>
+  <text x="154" y="298" font-size="13" font-weight="600" fill="#16384B" font-family="ui-monospace, Menlo, Consolas, monospace">Ver</text>
+  <text x="154" y="316" font-size="10.5" fill="#5B7383" font-family="ui-monospace, Menlo, Consolas, monospace">1 B</text>
+  <text x="154" y="332" font-size="9.5" fill="#8796A2" font-family="ui-monospace, Menlo, Consolas, monospace">3 · 0x03</text>
+  <!-- Time -->
+  <rect x="214" y="272" width="104" height="76" rx="6" fill="#E7F2F9" stroke="#CFE3EF"/>
+  <rect x="216" y="272" width="100" height="4" rx="2" fill="#3E9BCC"/>
+  <text x="222" y="298" font-size="13" font-weight="600" fill="#16384B" font-family="ui-monospace, Menlo, Consolas, monospace">Time</text>
+  <text x="222" y="316" font-size="10.5" fill="#5B7383" font-family="ui-monospace, Menlo, Consolas, monospace">4 B · Argon2</text>
+  <text x="222" y="332" font-size="9.5" fill="#8796A2" font-family="ui-monospace, Menlo, Consolas, monospace">4–7</text>
+  <!-- Memory -->
+  <rect x="324" y="272" width="116" height="76" rx="6" fill="#E7F2F9" stroke="#CFE3EF"/>
+  <rect x="326" y="272" width="112" height="4" rx="2" fill="#3E9BCC"/>
+  <text x="332" y="298" font-size="13" font-weight="600" fill="#16384B" font-family="ui-monospace, Menlo, Consolas, monospace">Memory</text>
+  <text x="332" y="316" font-size="10.5" fill="#5B7383" font-family="ui-monospace, Menlo, Consolas, monospace">4 B · Argon2</text>
+  <text x="332" y="332" font-size="9.5" fill="#8796A2" font-family="ui-monospace, Menlo, Consolas, monospace">8–11</text>
+  <!-- Thr -->
+  <rect x="446" y="272" width="62" height="76" rx="6" fill="#E7F2F9" stroke="#CFE3EF"/>
+  <rect x="448" y="272" width="58" height="4" rx="2" fill="#3E9BCC"/>
+  <text x="454" y="298" font-size="13" font-weight="600" fill="#16384B" font-family="ui-monospace, Menlo, Consolas, monospace">Thr</text>
+  <text x="454" y="316" font-size="10.5" fill="#5B7383" font-family="ui-monospace, Menlo, Consolas, monospace">1 B</text>
+  <text x="454" y="332" font-size="9.5" fill="#8796A2" font-family="ui-monospace, Menlo, Consolas, monospace">12</text>
+  <!-- Reserved -->
+  <rect x="514" y="272" width="96" height="76" rx="6" fill="#E7F2F9" stroke="#CFE3EF"/>
+  <rect x="516" y="272" width="92" height="4" rx="2" fill="#3E9BCC"/>
+  <text x="522" y="298" font-size="13" font-weight="600" fill="#16384B" font-family="ui-monospace, Menlo, Consolas, monospace">Reserved</text>
+  <text x="522" y="316" font-size="10.5" fill="#5B7383" font-family="ui-monospace, Menlo, Consolas, monospace">3 B · 0</text>
+  <text x="522" y="332" font-size="9.5" fill="#8796A2" font-family="ui-monospace, Menlo, Consolas, monospace">13–15</text>
+  <!-- Salt -->
+  <rect x="616" y="272" width="232" height="76" rx="6" fill="#E7F2F9" stroke="#CFE3EF"/>
+  <rect x="618" y="272" width="228" height="4" rx="2" fill="#3E9BCC"/>
+  <text x="624" y="298" font-size="13" font-weight="600" fill="#16384B" font-family="ui-monospace, Menlo, Consolas, monospace">Salt</text>
+  <text x="624" y="316" font-size="10.5" fill="#5B7383" font-family="ui-monospace, Menlo, Consolas, monospace">16 B · random per file</text>
+  <text x="624" y="332" font-size="9.5" fill="#8796A2" font-family="ui-monospace, Menlo, Consolas, monospace">16–31</text>
+
+  <!-- ============ Section 3: One chunk ============ -->
+  <text x="40" y="386" font-size="14.5" font-weight="650" fill="#16384B"><tspan fill="#3E9BCC" font-family="ui-monospace, Menlo, Consolas, monospace">03</tspan>  One chunk · as written on disk</text>
+  <rect x="40" y="396" width="820" height="94" rx="10" fill="#ECEAE4"/>
+
+  <!-- Flag -->
+  <rect x="48" y="406" width="70" height="76" rx="6" fill="#E7F2F9" stroke="#CFE3EF"/>
+  <rect x="50" y="406" width="66" height="4" rx="2" fill="#3E9BCC"/>
+  <text x="56" y="432" font-size="13" font-weight="600" fill="#16384B" font-family="ui-monospace, Menlo, Consolas, monospace">Flag</text>
+  <text x="56" y="450" font-size="10.5" fill="#5B7383" font-family="ui-monospace, Menlo, Consolas, monospace">1 B</text>
+  <text x="56" y="466" font-size="9.5" fill="#8796A2" font-family="ui-monospace, Menlo, Consolas, monospace">0 / 1</text>
+  <!-- Length -->
+  <rect x="124" y="406" width="96" height="76" rx="6" fill="#E7F2F9" stroke="#CFE3EF"/>
+  <rect x="126" y="406" width="92" height="4" rx="2" fill="#3E9BCC"/>
+  <text x="132" y="432" font-size="13" font-weight="600" fill="#16384B" font-family="ui-monospace, Menlo, Consolas, monospace">Length</text>
+  <text x="132" y="450" font-size="10.5" fill="#5B7383" font-family="ui-monospace, Menlo, Consolas, monospace">4 B</text>
+  <text x="132" y="466" font-size="9.5" fill="#8796A2" font-family="ui-monospace, Menlo, Consolas, monospace">data size</text>
+  <!-- Nonce -->
+  <rect x="226" y="406" width="150" height="76" rx="6" fill="#EEF1F3" stroke="#DBDFE3"/>
+  <rect x="228" y="406" width="146" height="4" rx="2" fill="#8E979F"/>
+  <text x="234" y="432" font-size="13" font-weight="600" fill="#16384B" font-family="ui-monospace, Menlo, Consolas, monospace">Nonce</text>
+  <text x="234" y="450" font-size="10.5" fill="#5B7383" font-family="ui-monospace, Menlo, Consolas, monospace">12 B · random</text>
+  <text x="234" y="466" font-size="9.5" fill="#8796A2" font-family="ui-monospace, Menlo, Consolas, monospace">unique per chunk</text>
+  <!-- Ciphertext -->
+  <rect x="382" y="406" width="330" height="76" rx="6" fill="#1D5B77" stroke="#16384B"/>
+  <rect x="384" y="406" width="326" height="4" rx="2" fill="#16384B"/>
+  <text x="390" y="432" font-size="13" font-weight="600" fill="#EAF3F8" font-family="ui-monospace, Menlo, Consolas, monospace">Ciphertext</text>
+  <text x="390" y="450" font-size="10.5" fill="#B9D4E2" font-family="ui-monospace, Menlo, Consolas, monospace">up to 64 KB</text>
+  <text x="390" y="466" font-size="9.5" fill="#9CC0D2" font-family="ui-monospace, Menlo, Consolas, monospace">encrypted payload</text>
+  <!-- Tag -->
+  <rect x="718" y="406" width="124" height="76" rx="6" fill="#1D5B77" stroke="#16384B"/>
+  <rect x="720" y="406" width="120" height="4" rx="2" fill="#16384B"/>
+  <text x="726" y="432" font-size="13" font-weight="600" fill="#EAF3F8" font-family="ui-monospace, Menlo, Consolas, monospace">Tag</text>
+  <text x="726" y="450" font-size="10.5" fill="#B9D4E2" font-family="ui-monospace, Menlo, Consolas, monospace">16 B</text>
+  <text x="726" y="466" font-size="9.5" fill="#9CC0D2" font-family="ui-monospace, Menlo, Consolas, monospace">GCM seal</text>
+
+  <!-- ============ Section 4: AAD ============ -->
+  <text x="40" y="520" font-size="14.5" font-weight="650" fill="#16384B"><tspan fill="#3E9BCC" font-family="ui-monospace, Menlo, Consolas, monospace">04</tspan>  AAD · what the tag signs (45 bytes)</text>
+  <rect x="40" y="530" width="820" height="206" rx="10" fill="#FFFFFF" stroke="#D3DAE0"/>
+
+  <!-- chips -->
+  <!-- Header chip -->
+  <rect x="56" y="548" width="118" height="76" rx="7" fill="#E7F2F9" stroke="#CFE3EF"/>
+  <rect x="58" y="548" width="114" height="4" rx="2" fill="#3E9BCC"/>
+  <text x="64" y="574" font-size="13" font-weight="600" fill="#16384B" font-family="ui-monospace, Menlo, Consolas, monospace">Header</text>
+  <text x="64" y="592" font-size="10.5" fill="#5B7383" font-family="ui-monospace, Menlo, Consolas, monospace">32 B</text>
+  <text x="64" y="610" font-size="9.5" fill="#8796A2" font-family="ui-monospace, Menlo, Consolas, monospace">from file top</text>
+  <text x="182" y="592" font-size="18" fill="#8A98A4" font-family="ui-monospace, Menlo, Consolas, monospace">+</text>
+  <!-- Flag chip -->
+  <rect x="200" y="548" width="86" height="76" rx="7" fill="#E7F2F9" stroke="#CFE3EF"/>
+  <rect x="202" y="548" width="82" height="4" rx="2" fill="#3E9BCC"/>
+  <text x="208" y="574" font-size="13" font-weight="600" fill="#16384B" font-family="ui-monospace, Menlo, Consolas, monospace">Flag</text>
+  <text x="208" y="592" font-size="10.5" fill="#5B7383" font-family="ui-monospace, Menlo, Consolas, monospace">1 B</text>
+  <text x="208" y="610" font-size="9.5" fill="#8796A2" font-family="ui-monospace, Menlo, Consolas, monospace">in chunk</text>
+  <text x="294" y="592" font-size="18" fill="#8A98A4" font-family="ui-monospace, Menlo, Consolas, monospace">+</text>
+  <!-- Length chip -->
+  <rect x="312" y="548" width="102" height="76" rx="7" fill="#E7F2F9" stroke="#CFE3EF"/>
+  <rect x="314" y="548" width="98" height="4" rx="2" fill="#3E9BCC"/>
+  <text x="320" y="574" font-size="13" font-weight="600" fill="#16384B" font-family="ui-monospace, Menlo, Consolas, monospace">Length</text>
+  <text x="320" y="592" font-size="10.5" fill="#5B7383" font-family="ui-monospace, Menlo, Consolas, monospace">4 B</text>
+  <text x="320" y="610" font-size="9.5" fill="#8796A2" font-family="ui-monospace, Menlo, Consolas, monospace">in chunk</text>
+  <text x="422" y="592" font-size="18" fill="#8A98A4" font-family="ui-monospace, Menlo, Consolas, monospace">+</text>
+  <!-- Counter chip (ghost) -->
+  <rect x="440" y="548" width="150" height="76" rx="7" fill="none" stroke="#B7C8D3" stroke-dasharray="5 4"/>
+  <rect x="442" y="548" width="146" height="4" rx="2" fill="#9CB6C6"/>
+  <text x="448" y="574" font-size="13" font-weight="600" fill="#2C5468" font-family="ui-monospace, Menlo, Consolas, monospace">Counter</text>
+  <text x="448" y="592" font-size="10.5" fill="#5B7383" font-family="ui-monospace, Menlo, Consolas, monospace">8 B</text>
+  <text x="448" y="610" font-size="9.5" fill="#8796A2" font-family="ui-monospace, Menlo, Consolas, monospace">recomputed · not on disk</text>
+  <text x="600" y="592" font-size="18" fill="#8A98A4" font-family="ui-monospace, Menlo, Consolas, monospace">=</text>
+  <!-- AAD result chip -->
+  <rect x="620" y="548" width="120" height="76" rx="7" fill="#ECEAE4" stroke="#D3DAE0"/>
+  <rect x="622" y="548" width="116" height="4" rx="2" fill="#3E9BCC"/>
+  <text x="628" y="574" font-size="13" font-weight="700" fill="#16384B" font-family="ui-monospace, Menlo, Consolas, monospace">AAD</text>
+  <text x="628" y="592" font-size="10.5" fill="#5B7383" font-family="ui-monospace, Menlo, Consolas, monospace">45 B</text>
+  <text x="628" y="610" font-size="9.5" fill="#8796A2" font-family="ui-monospace, Menlo, Consolas, monospace">signed, not all stored</text>
+
+  <!-- divider -->
+  <line x1="56" y1="646" x2="844" y2="646" stroke="#E3E6EA" stroke-dasharray="4 4"/>
+
+  <!-- formulas -->
+  <text x="56" y="672" font-size="12.5" fill="#16384B" font-family="ui-monospace, Menlo, Consolas, monospace">encrypt:  <tspan fill="#3E9BCC" font-weight="600">gcm.Seal</tspan>( nonce, <tspan fill="#1D5B77" font-weight="600">plaintext</tspan>, <tspan fill="#B4590A" font-weight="600">aad</tspan> )  →  Ciphertext + Tag</text>
+  <text x="56" y="694" font-size="12.5" fill="#16384B" font-family="ui-monospace, Menlo, Consolas, monospace">decrypt:  <tspan fill="#3E9BCC" font-weight="600">gcm.Open</tspan>( nonce, ciphertext, <tspan fill="#B4590A" font-weight="600">aad</tspan> )  —  fails if any bit of the aad differs</text>
+  <text x="56" y="716" font-size="12" fill="#5B7383" font-family="ui-monospace, Menlo, Consolas, monospace">counter = 0, 1, 2, …  <tspan fill="#16384B">the reader recomputes it, so a reordered or deleted chunk no longer matches.</tspan></text>
+</svg>

@@ -114,6 +114,10 @@ echo -n "Secret Message" | ./gocipher encrypt -o secret.bin
 
 ## Security Details
 
+<p align="center">
+  <img src="assets/format-v3.svg" alt="GoCipher v3 file format: a 32-byte header followed by chunks (Flag, Length, Nonce, Ciphertext, Tag), where each chunk's GCM tag authenticates an AAD made of the full header plus the chunk's flag, length, and a recomputed counter" width="860">
+</p>
+
 *   **Algorithm**: AES-256-GCM (Galois/Counter Mode).
 *   **Key Derivation**: Argon2id.
     *   Time (Iterations): 3
